@@ -1,0 +1,41 @@
+.contact-container {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 30px;
+    margin-top: 20px;
+}
+
+.contact-info {
+    background: white;
+    padding: 30px;
+    border-radius: 8px;
+    box-shadow: 0 0 20px rgba(0,0,0,0.1);
+}
+
+.contact-form {
+    background: white;
+    padding: 30px;
+    border-radius: 8px;
+    box-shadow: 0 0 20px rgba(0,0,0,0.1);
+}
+
+.contact-info h3, .contact-form h3 {
+    color: #1e3c72;
+    margin-bottom: 20px;
+    border-bottom: 2px solid #1e3c72;
+    padding-bottom: 10px;
+}
+
+.contact-item {
+    margin: 20px 0;
+    display: flex;
+    align-items: center;
+}
+
+.contact-item i {
+    font-size: 1.5em;
+    color: #1e3c72;
+    margin-right: 15px;
+    width: 30px;
+}
+

@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quản lý Xe máy - Theo dõi</title>
+    <link rel="stylesheet" href="homestyle.css">
+    <link rel="stylesheet" href="trackingstyle.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="https://js.api.here.com/v3/3.1/mapsjs-ui.css" />
+    <script src="https://js.api.here.com/v3/3.1/mapsjs-core.js"></script>
+    <script src="https://js.api.here.com/v3/3.1/mapsjs-service.js"></script>
+    <script src="https://js.api.here.com/v3/3.1/mapsjs-ui.js"></script>
+    <script src="https://js.api.here.com/v3/3.1/mapsjs-mapevents.js"></script>
+    <link rel="stylesheet" href="https://js.api.here.com/v3/3.1/mapsjs-ui.css" />
+
+    <script src="https://www.gstatic.com/firebasejs/8.2.10/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.2.10/firebase-database.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.2.10/firebase-analytics.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.2.10/firebase-auth.js"></script>
+
+    <script src="tracking.js"></script>
+</head>
+
+<body>
+    <header class="header">
+        <h1>Hệ thống Quản lý Xe máy</h1>
+        <p>Theo dõi vị trí xe</p>
+    </header>
+
+    <div class="navbar">
+        <a href="homepage.html"><i class="fas fa-home"></i> Trang chủ</a>
+        <a href="vehicles.html"><i class="fas fa-motorcycle"></i> Xe</a>
+        <a href="tracking.html"><i class="fas fa-map-marker-alt"></i> Theo dõi</a>
+        <a href="info.html"><i class="fas fa-info-circle"></i> Thông tin</a>
+        <a href="contact.html"><i class="fas fa-envelope"></i> Liên hệ</a>
+    </div>
+
+    <div class="content">
+        <div class="tracking-container">
+            <div class="vehicle-list">
+                <div class="list-header">
+                    <h3>Danh sách xe</h3>
+                    <button id="centerMapBtn" class="center-btn">
+                        <i class="fas fa-crosshairs"></i> Tất cả xe
+                    </button>
+                </div>
+                <div id="vehicleListContainer">
+                    <!-- Danh sách xe sẽ được tạo động ở đây -->
+                </div>
+            </div>
+            <div class="map-container" id="map" style="height: 500px;">
+                <!-- Bản đồ HERE sẽ được hiển thị ở đây -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Thay YOUR_API_KEY bằng API Key của bạn
+        const platform = new H.service.Platform({
+            apikey: 'NXaCX4BvChBrVXWlhdCHySnT5px-Pb8LD-XIVxtF8f0'
+        });
+
+        const defaultLayers = platform.createDefaultLayers();
+
+        const map = new H.Map(
+            document.getElementById('map'),
+            defaultLayers.vector.normal.map,
+            {
+                center: { lat: 10.762622, lng: 106.660172 }, // Tọa độ trung tâm (TP.HCM)
+                zoom: 10,
+                pixelRatio: window.devicePixelRatio || 1
+            }
+        );
+
+        window.addEventListener('resize', () => map.getViewPort().resize());
+
+        const behavior = new H.mapevents.Behavior(new H.mapevents.MapEvents(map));
+
+        const ui = H.ui.UI.createDefault(map, defaultLayers);
+
+        // Thêm ngay sau phần khởi tạo map và UI
+        const center = { lat: 10.762622, lng: 106.660172 };
+        const radius = 30000; // 30km in meters
+        
+        // Tạo style cho vòng tròn
+        const circleStyle = {
+            strokeColor: 'rgba(55, 85, 170, 0.6)', // Màu viền
+            strokeWidth: 2,
+            fillColor: 'rgba(55, 85, 170, 0.1)'    // Màu fill
+        };
+        
+        // Tạo vòng tròn
+        const circle = new H.map.Circle(
+            center,
+            radius,
+            {
+                style: circleStyle
+            }
+        );
+        
+        // Thêm vòng tròn vào map
+        map.addObject(circle);
+    </script>
+    <script>
+
+        var firebaseConfig = {
+            apiKey: "AIzaSyBY1Ff7ulpCEZW9FX_KK7tg2mc9CGnVdDw",
+            authDomain: "fir-demo-75dcf.firebaseapp.com",
+            databaseURL: "https://fir-demo-75dcf-default-rtdb.firebaseio.com",
+            projectId: "fir-demo-75dcf",
+            storageBucket: "fir-demo-75dcf.firebasestorage.app",
+            messagingSenderId: "12915978449",
+            appId: "1:12915978449:web:7ad0227052ad3ae31ad5f0",
+            measurementId: "G-2V1QH7BD0D"
+        };
+        firebase.initializeApp(firebaseConfig);
+        firebase.analytics();
+        // Mảng để lưu dữ liệu xe
+        let vehiclesArray = [];
+
+        // Tham chiếu đến nhánh 'xe' trong Firebase
+        const xeRef = firebase.database().ref('xe');
+
+        // Thêm hàm tính khoảng cách (theo công thức Haversine)
+        function calculateDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371000; // Bán kính Trái đất tính bằng mét
+            const φ1 = lat1 * Math.PI/180;
+            const φ2 = lat2 * Math.PI/180;
+            const Δφ = (lat2-lat1) * Math.PI/180;
+            const Δλ = (lon2-lon1) * Math.PI/180;
+
+            const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+                    Math.cos(φ1) * Math.cos(φ2) *
+                    Math.sin(Δλ/2) * Math.sin(Δλ/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+
+            return R * c; // Khoảng cách tính bằng mét
+        }
+
+        // Cập nhật phần xử lý dữ liệu xe
+        xeRef.on('value', (snapshot) => {
+            const xeData = snapshot.val();
+            vehiclesArray = [];
+            const vehicleListContainer = document.getElementById('vehicleListContainer');
+            vehicleListContainer.innerHTML = '';
+
+            for (let xeId in xeData) {
+                const xeRecords = xeData[xeId];
+                const latestRecord = Object.values(xeRecords)[Object.values(xeRecords).length - 1];
+                
+                // Tính khoảng cách từ xe đến trung tâm
+                const distance = calculateDistance(
+                    center.lat, 
+                    center.lng, 
+                    parseFloat(latestRecord.lat), 
+                    parseFloat(latestRecord.long)
+                );
+                
+                // Kiểm tra xem xe có nằm ngoài vòng tròn không
+                const isOutsideCircle = distance > radius;
+                console.log(latestRecord.lat);
+                console.log(`Xe ${xeId}: Khoảng cách = ${distance}m, Ngoài vòng tròn: ${isOutsideCircle}`);
+
+                const vehicleDiv = document.createElement('div');
+                vehicleDiv.className = 'vehicle-item';
+                vehicleDiv.id = xeId;
+
+                const isActive = true;
+                const statusClass = isActive ? 'status-active' : 'status-inactive';
+                const statusText = isActive ? 'Hoạt động' : 'Dừng';
+
+                vehicleDiv.innerHTML = `
+                    <div class="vehicle-info">
+                        <div class="vehicle-info-main">
+                            <i class="fas fa-motorcycle"></i> 
+                            <span class="vehicle-drive">${xeId}</span>
+                            <span class="status-indicator ${statusClass}">
+                                <i class="fas fa-circle"></i>
+                                <span>${statusText}</span>
+                            </span>
+                        </div>
+                        <div class="vehicle-buttons">
+                            <button class="alert-btn ${isOutsideCircle ? 'alert-active' : ''}">
+                                <i class="fas fa-bell"></i>
+                                <span>Cảnh báo</span>
+                            </button>
+                            <button class="stop-btn">
+                                <i class="fas fa-stop-circle"></i>
+                                <span>Dừng</span>
+                            </button>
+                        </div>
+                    </div>
+                `;
+                
+                // Thêm sự kiện click cho mỗi xe
+                vehicleDiv.addEventListener('click', () => {
+                    const selectedVehicle = vehiclesArray.find(v => v.id === xeId);
+                    if (selectedVehicle) {
+                        zoomToVehicle(map, xeId);  // Sử dụng hàm mới
+
+                        // Thêm hiệu ứng active cho xe được chọn
+                        document.querySelectorAll('.vehicle-item').forEach(item => {
+                            item.classList.remove('selected');
+                        });
+                        vehicleDiv.classList.add('selected');
+                    }
+                });
+
+                vehicleListContainer.appendChild(vehicleDiv);
+
+                // Thêm thông tin xe vào mảng
+                vehiclesArray.push({
+                    id: xeId,
+                    lat: latestRecord.lat,
+                    long: latestRecord.long,
+                    date: latestRecord.date,
+                    time: latestRecord.time,
+                    isOutsideCircle: isOutsideCircle
+                });
+            }
+
+            // Hiển thị tracking cho tất cả các xe
+            vehiclesArray.forEach(vehicle => {
+                displayTracking(map, vehicle.id);
+                
+                // Log trạng thái của xe
+                if (vehicle.isOutsideCircle) {
+                    console.log(`Cảnh báo: Xe ${vehicle.id} đã ra ngoài phạm vi 30km!`);
+                }
+            });
+        });
+
+        document.getElementById('centerMapBtn').addEventListener('click', () => {
+            map.setCenter({lat: 10.762622, lng: 106.660172});
+            map.setZoom(10);
+        });
+
+    </script>
+</body>
+
+</html>

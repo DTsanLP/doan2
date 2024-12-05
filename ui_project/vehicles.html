@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quản lý Xe máy - Danh sách xe</title>
+    <link rel="stylesheet" href="homestyle.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="vehiclesstyle.css">
+
+    <script src="https://js.api.here.com/v3/3.1/mapsjs-core.js"></script>
+    <script src="https://js.api.here.com/v3/3.1/mapsjs-service.js"></script>
+    <script src="https://js.api.here.com/v3/3.1/mapsjs-ui.js"></script>
+    <script src="https://js.api.here.com/v3/3.1/mapsjs-mapevents.js"></script>
+    <link rel="stylesheet" href="https://js.api.here.com/v3/3.1/mapsjs-ui.css" />
+   
+    <script src="https://www.gstatic.com/firebasejs/8.2.10/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.2.10/firebase-database.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.2.10/firebase-analytics.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.2.10/firebase-auth.js"></script>
+</head>
+<body>
+    <header class="header">
+        <h1>Hệ thống Quản lý Xe máy</h1>
+        <p>Quản lý danh sách xe</p>
+    </header>
+
+    <div class="navbar">
+        <a href="homepage.html"><i class="fas fa-home"></i> Trang chủ</a>
+        <a href="vehicles.html"><i class="fas fa-motorcycle"></i> Xe</a>
+        <a href="tracking.html"><i class="fas fa-map-marker-alt"></i> Theo dõi</a>
+        <a href="info.html"><i class="fas fa-info-circle"></i> Thông tin</a>
+        <a href="contact.html"><i class="fas fa-envelope"></i> Liên hệ</a>
+    </div>
+
+    <div class="content">
+        <div class="action-buttons-container">
+            <button id="addVehicleBtn" class="add-btn"><i class="fas fa-plus"></i> Thêm xe mới</button>
+        </div>
+        <table class="vehicle-table">
+            <thead>
+                <tr>
+                    <th>STT</th>
+                    <th>Biển số xe</th>
+                    <th>Loại xe</th>
+                    <th>Trạng thái</th>
+                    <th>Người thuê</th>
+                    <th>Card ID</th>
+                    <th>Thao tác</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Dữ liệu sẽ được thêm vào đây bằng JavaScript -->
+            </tbody>
+        </table>
+    </div>
+
+    <div id="editVehicleModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>Sửa thông tin xe</h2>
+            <form id="editVehicleForm">
+                <div class="form-group">
+                    <label for="editLicensePlate">Biển số xe:</label>
+                    <input type="text" id="editLicensePlate" name="licensePlate" required>
+                </div>
+                <div class="form-group">
+                    <label for="editVehicleType">Loại xe:</label>
+                    <select id="editVehicleType" name="vehicleType" required>
+                        <option value="">Chọn loại xe</option>
+                        <option value="Honda Wave">Honda Wave</option>
+                        <option value="Yamaha Exciter">Yamaha Exciter</option>
+                        <option value="Honda Vision">Honda Vision</option>
+                        <option value="Honda Air Blade">Honda Air Blade</option>
+                        <option value="Piaggio Vespa">Piaggio Vespa</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="editStatus">Trạng thái:</label>
+                    <select id="editStatus" name="status" required>
+                        <option value="Đang hoạt động">Đang hoạt động</option>
+                        <option value="Đang bảo trì">Đang bảo trì</option>
+                        <option value="Không hoạt động">Không hoạt động</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="editRenter">Người thuê:</label>
+                    <input type="text" id="editRenter" name="renter" required>
+                </div>
+                <div class="form-buttons">
+                    <button type="submit" class="submit-btn">Cập nhật</button>
+                    <button type="button" class="cancel-btn">Hủy</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="addVehicleModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>Thêm xe mới</h2>
+            <form id="addVehicleForm">
+                <div class="form-group">
+                    <label for="newLicensePlate">Biển số xe:</label>
+                    <input type="text" id="newLicensePlate" name="licensePlate" required>
+                </div>
+                <div class="form-group">
+                    <label for="newVehicleType">Loại xe:</label>
+                    <select id="newVehicleType" name="vehicleType" required>
+                        <option value="">Chọn loại xe</option>
+                        <option value="Honda Wave">Honda Wave</option>
+                        <option value="Yamaha Exciter">Yamaha Exciter</option>
+                        <option value="Honda Vision">Honda Vision</option>
+                        <option value="Honda Air Blade">Honda Air Blade</option>
+                        <option value="Piaggio Vespa">Piaggio Vespa</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="newStatus">Trạng thái:</label>
+                    <select id="newStatus" name="status" required>
+                        <option value="Không hoạt động">Không hoạt động</option>
+                        <option value="Đang hoạt động">Đang hoạt động</option>
+                        <option value="Đang bảo trì">Đang bảo trì</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="newRenter">Tên người thuê:</label>
+                    <input type="text" id="newRenter" name="renter">
+                </div>
+                <div class="form-buttons">
+                    <button type="submit" class="submit-btn">Thêm</button>
+                    <button type="button" class="cancel-btn">Hủy</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="registerModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>Đăng ký thuê xe</h2>
+            <form id="registerForm">
+                <div class="form-group">
+                    <label for="registerName">Họ và tên:</label>
+                    <input type="text" id="registerName" name="name" required>
+                </div>
+                <div class="form-group">
+                    <label for="registerPhone">Số điện thoại:</label>
+                    <input type="tel" id="registerPhone" name="phoneNumber" required>
+                </div>
+                <div class="form-group">
+                    <label for="registerAddress">Địa chỉ:</label>
+                    <input type="text" id="registerAddress" name="address" required>
+                </div>
+                <div class="form-group">
+                    <label for="registerIdentity">CMND/CCCD:</label>
+                    <input type="text" id="registerIdentity" name="idNumber" required>
+                </div>
+                <div class="form-group">
+                    <label for="registerCardId">Mã thẻ:</label>
+                    <input type="text" id="registerCardId" name="cardId" readonly>
+                </div>
+                <div class="form-buttons">
+                    <button type="submit" class="submit-btn">Đăng ký</button>
+                    <button type="button" class="cancel-btn">Hủy</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // Cấu hình Firebase
+        var firebaseConfig = {
+            apiKey: "AIzaSyBY1Ff7ulpCEZW9FX_KK7tg2mc9CGnVdDw",
+            authDomain: "fir-demo-75dcf.firebaseapp.com",
+            databaseURL: "https://fir-demo-75dcf-default-rtdb.firebaseio.com",
+            projectId: "fir-demo-75dcf",
+            storageBucket: "fir-demo-75dcf.firebasestorage.app",
+            messagingSenderId: "12915978449",
+            appId: "1:12915978449:web:7ad0227052ad3ae31ad5f0",
+            measurementId: "G-2V1QH7BD0D"
+        };
+
+        // Khởi tạo Firebase
+        firebase.initializeApp(firebaseConfig);
+        firebase.analytics();
+
+        const database = firebase.database();
+
+        // Thêm biến để theo dõi số thứ tự
+        let currentIndex = 0;
+
+        // Thêm biến cho modal chỉnh sửa
+        const editModal = document.getElementById("editVehicleModal");
+        let currentRow = null;
+
+        // Xử lý đóng modal chỉnh sửa
+        editModal.querySelector('.close').onclick = function() {
+            editModal.style.display = "none";
+        }
+
+        editModal.querySelector('.cancel-btn').onclick = function() {
+            editModal.style.display = "none";
+        }
+
+        // Hàm đ lấy dữ liệu từ Firebase
+        function loadVehiclesData() {
+            const tbody = document.querySelector('.vehicle-table tbody');
+            tbody.innerHTML = ''; // Xóa dữ liệu cũ
+            currentIndex = 0; // Reset số thứ tự
+
+            // Lấy tất cả dữ liệu từ node users
+            database.ref('users').once('value').then((snapshot) => {
+                const usersData = snapshot.val();
+                if (usersData) {
+                    Object.keys(usersData).forEach(userId => {
+                        const userData = usersData[userId];
+                        if (userData && userData.drive) {
+                            currentIndex++; // Tăng s thứ tự
+                            
+                            // Tạo hàng mới cho mỗi xe
+                            const row = tbody.insertRow();
+                            
+                            // Thêm cột số thứ tự
+                            row.insertCell(0).textContent = currentIndex;
+                            
+                            // Thêm các ô dữ liệu khác
+                            row.insertCell(1).textContent = userData.drive;
+                            row.insertCell(2).textContent = userData.vehicleType ;
+                            row.insertCell(3).textContent = userData.status || 'Đang hoạt động';
+                            row.insertCell(4).textContent = userData.name;
+                            row.insertCell(5).textContent = userData.cardId || 'Không có';
+                            
+                            // Thêm nút sửa
+                            const actionCell = row.insertCell(6);
+                            actionCell.className = 'action-buttons';
+                            if (!userData.name || userData.cardId == ""){
+                                actionCell.innerHTML = `
+                                    <button class="edit-btn"><i class="fas fa-edit"></i> Sửa</button>
+                                    <button class="register-btn"><i class="fas fa-user-plus"></i> Đăng ký</button>
+                                `;
+                                actionCell.querySelector('.register-btn').onclick = function() {
+                                    currentEditingVehicleId = userId;
+                                    registerModal.style.display = "block";
+                                }
+                            }
+                            else{
+                                actionCell.innerHTML = `
+                                <button class="edit-btn"><i class="fas fa-edit"></i> Sửa</button>
+                                `;
+                            }
+                            // Gắn sự kiện cho nút sửa
+                            actionCell.querySelector('.edit-btn').onclick = function() {
+                                currentRow = this.closest('tr');
+                                const cells = currentRow.cells;
+                                
+                                // Tìm user ID dựa trên biển số xe
+                                const licensePlate = cells[1].textContent;
+                                database.ref('users').orderByChild('drive').equalTo(licensePlate).once('value')
+                                    .then((snapshot) => {
+                                        const userData = snapshot.val();
+                                        if (userData) {
+                                            const userId = Object.keys(userData)[0];
+                                            currentEditingUserId = userId; // Lưu ID người dùng đang được chỉnh sửa
+                                            
+                                            // Điền thông tin vào form
+                                            document.getElementById('editLicensePlate').value = cells[1].textContent;
+                                            document.getElementById('editVehicleType').value = cells[2].textContent;
+                                            document.getElementById('editStatus').value = cells[3].textContent;
+                                            document.getElementById('editRenter').value = cells[4].textContent;
+                                            
+                                            // Hiển thị modal
+                                            editModal.style.display = "block";
+                                        }
+                                    });
+                            };
+                        }
+                    });
+                }
+            }).catch((error) => {
+                console.error("Lỗi khi tải dữ liệu:", error);
+            });
+        }
+
+        // Thêm listener cho thay đổi real-time
+        function setupRealtimeUpdates() {
+            database.ref('users').off();
+            
+            database.ref('users').on('value', (snapshot) => {
+                loadVehiclesData();
+            });
+        }
+
+        // Thay thế đoạn code cũ về card bằng đoạn này
+        function setupCardListener() {
+            firebase.database().ref('card').on('value', (snapshot) => {
+                if (snapshot.exists()) {
+                    const cardId = snapshot.val();
+                    document.getElementById('registerCardId').value = cardId;
+                    // Chỉ cho phép submit form khi có cardId hợp lệ
+                    document.querySelector('.submit-btn').disabled = !cardId;
+                } else {
+                    document.getElementById('registerCardId').value = 'Không có thẻ khả dụng';
+                    document.querySelector('.submit-btn').disabled = true;
+                }
+            });
+        }
+
+        // Thêm vào phần khởi tạo
+        document.addEventListener('DOMContentLoaded', () => {
+            setupRealtimeUpdates();
+            setupCardListener();
+        });
+
+        // Cập nhật xử lý form chỉnh sửa
+        document.getElementById('editVehicleForm').onsubmit = function(e) {
+            e.preventDefault();
+            
+            const newVehicleType = document.getElementById('editVehicleType').value;
+            const licensePlate = document.getElementById('editLicensePlate').value;
+            const status = document.getElementById('editStatus').value;
+            const renter = document.getElementById('editRenter').value;
+
+            const updates = {
+                drive: licensePlate,
+                vehicleType: newVehicleType,
+                status: status,
+                name: renter
+            };
+
+            database.ref('users/' + currentEditingUserId).update(updates)
+                .then(() => {
+                    alert('Cập nhật thành công!');
+                    editModal.style.display = "none";
+                    document.getElementById('editVehicleForm').reset();
+                })
+                .catch((error) => {
+                    console.error("Lỗi khi cập nhật:", error);
+                    alert("Có lỗi xảy ra khi cập nhật!");
+                });
+        };
+
+        // Thêm các biến cho modal thêm xe mới
+        const addModal = document.getElementById("addVehicleModal");
+        const addBtn = document.getElementById("addVehicleBtn");
+        const addForm = document.getElementById("addVehicleForm");
+
+        // Hiển thị modal khi nhấn nút thêm xe
+        addBtn.onclick = function() {
+            addModal.style.display = "block";
+        }
+
+        // Đóng modal khi nhấn nút X hoặc Hủy
+        addModal.querySelector('.close').onclick = function() {
+            addModal.style.display = "none";
+        }
+
+        addModal.querySelector('.cancel-btn').onclick = function() {
+            addModal.style.display = "none";
+        }
+
+        // Xử lý submit form thêm xe mới
+        addForm.onsubmit = function(e) {
+            e.preventDefault();
+            
+            const newUserId = `user${currentIndex + 1}`; // Tạo ID tự động
+            const renterName = document.getElementById('newRenter').value;
+            const newData = {
+                drive: document.getElementById('newLicensePlate').value,
+                vehicleType: document.getElementById('newVehicleType').value,
+                status: renterName ? document.getElementById('newStatus').value : 'Không hoạt động',
+                name: renterName
+            };
+
+            // Sử dụng update để thêm dữ liệu
+            database.ref('users/' + newUserId).update(newData)
+                .then(() => {
+                    alert('Thêm xe mới thành công!');
+                    addModal.style.display = "none";
+                    addForm.reset();
+                    loadVehiclesData(); // Tải lại dữ liệu để hiển thị xe mới
+                })
+                .catch((error) => {
+                    console.error("Lỗi khi thêm xe mới:", error);
+                    alert("Có lỗi xảy ra khi thêm xe mới!");
+                });
+        };
+
+        // Thêm các biến và xử lý cho modal đăng ký
+        const registerModal = document.getElementById("registerModal");
+        const registerForm = document.getElementById("registerForm");
+
+        
+        firebase.database().ref('card').once('value')
+        .then((snapshot) => {
+           
+                if (snapshot.exists()) {
+                    const cardId = snapshot.val();  // Lấy giá trị trực tiếp
+                    document.getElementById('registerCardId').value = cardId;
+                } else {
+                    document.getElementById('registerCardId').value = 'Không có thẻ khả dụng';
+                    document.querySelector('.submit-btn').disabled = true;
+                }
+        })
+        .catch(error => {
+            console.error("Lỗi khi lấy dữ liệu thẻ:", error);
+            document.getElementById('registerCardId').value = 'Lỗi khi lấy thông tin thẻ';
+        });
+
+        let currentVehicleLicense = null;
+
+        // Đóng modal đăng ký
+        registerModal.querySelector('.close').onclick = function() {
+            registerModal.style.display = "none";
+        }
+
+        registerModal.querySelector('.cancel-btn').onclick = function() {
+            registerModal.style.display = "none";
+        }
+
+        // Xử lý form đăng ký
+        registerForm.onsubmit = function(e) {
+            e.preventDefault();
+            
+            const registerData = {
+                name: document.getElementById('registerName').value,
+                phoneNumber: document.getElementById('registerPhone').value,
+                address: document.getElementById('registerAddress').value,
+                idNumber: document.getElementById('registerIdentity').value,
+                cardId: document.getElementById('registerCardId').value,
+                status: 'Đang hoạt động',
+                registrationDate: new Date().toString()
+            };
+
+            // Lấy biển số xe từ user hiện tại
+            database.ref(`users/${currentEditingVehicleId}`).once('value')
+                .then((snapshot) => {
+                    const userData = snapshot.val();
+                    const drive = userData.drive;
+
+                    // Cập nhật thông tin user
+                    return database.ref(`users/${currentEditingVehicleId}`).update(registerData)
+                        .then(() => {
+                            // Kiểm tra và cập nhật cardInfo
+                            return database.ref('cardInfo').orderByChild('cardId')
+                                .equalTo(registerData.cardId).once('value')
+                                .then((cardSnapshot) => {
+                                    if (cardSnapshot.exists()) {
+                                        // Cập nhật cardInfo nếu cardId đã tồn tại
+                                        return database.ref(`cardInfo/${registerData.cardId}`).update({
+                                            drive: drive,
+                                            mode: "10"
+                                        });
+                                    } else {
+                                        // Tạo mới cardInfo với cardId làm key
+                                        return database.ref(`cardInfo/${registerData.cardId}`).set({
+                                            drive: drive,
+                                            mode: "10"
+                                        });
+                                    }
+                                });
+                        })
+                        .then(() => {
+                            // Xóa giá trị card sau khi đăng ký thành công
+                            return database.ref('card').set("");
+                        })
+                        .then(() => {
+                            alert('Đăng ký thuê xe thành công!');
+                            registerModal.style.display = "none";
+                            registerForm.reset();
+                        });
+                })
+                .catch((error) => {
+                    console.error("Lỗi khi đăng ký:", error);
+                    alert("Có lỗi xảy ra khi đăng ký!");
+                });
+        };
+
+        // Cập nhật window.onclick để bao gồm cả registerModal
+        window.onclick = function(event) {
+            if (event.target == addModal) {
+                addModal.style.display = "none";
+            }
+            if (event.target == editModal) {
+                editModal.style.display = "none";
+            }
+            if (event.target == registerModal) {
+                registerModal.style.display = "none";
+            }
+        }
+
+        // Thêm xử lý phím Enter cho các form
+        [editModal, addModal, registerModal].forEach(modal => {
+            modal.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    const form = modal.querySelector('form');
+                    if (form) {
+                        e.preventDefault();
+                        form.dispatchEvent(new Event('submit'));
+                    }
+                }
+            });
+        });
+    </script>
+</body>
+</html> 
