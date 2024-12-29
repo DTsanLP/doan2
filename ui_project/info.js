@@ -85,9 +85,12 @@ function openEditModal(userId) {
         
         // Điền thông tin vào form
         document.getElementById('editName').value = userData.name || '';
-        document.getElementById('editphoneNumber').value = userData.phoneNumber || '';
-        document.getElementById('editAddress').value = userData.address || '';
+        document.getElementById('editPhoneNumber').value = userData.phoneNumber;
+        document.getElementById('editAddress').value = userData.address;
         document.getElementById('editIdNumber').value = userData.idNumber || '';
+        document.getElementById('editDrive').value = userData.drive || '';
+        document.getElementById('editVehicleType').value = userData.vehicleType || '';
+
     });
     
     modal.style.display = 'block';
@@ -111,13 +114,13 @@ document.addEventListener('DOMContentLoaded', function() {
         
         const updates = {
             name: document.getElementById('editName').value,
-            phoneNumber: document.getElementById('editphoneNumber').value,
+            phoneNumber: document.getElementById('editPhoneNumber').value,
             address: document.getElementById('editAddress').value,
             idNumber: document.getElementById('editIdNumber').value,
-            //cardId: document.getElementById('editCardId').value,
+            // cardId: document.getElementById('editCardId').value,
             drive: document.getElementById('editDrive').value,
             vehicleType: document.getElementById('editVehicleType').value,
-            registrationDate: document.getElementById('editRegistrationDate').value
+            // registrationDate: document.getElementById('editRegistrationDate').value
         };
         
         // Cập nhật Firebase

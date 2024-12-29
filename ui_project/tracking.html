@@ -8,6 +8,7 @@
     <link rel="stylesheet" href="homestyle.css">
     <link rel="stylesheet" href="trackingstyle.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+
     <link rel="stylesheet" href="https://js.api.here.com/v3/3.1/mapsjs-ui.css" />
     <script src="https://js.api.here.com/v3/3.1/mapsjs-core.js"></script>
     <script src="https://js.api.here.com/v3/3.1/mapsjs-service.js"></script>
@@ -24,6 +25,7 @@
 </head>
 
 <body>
+    <audio id="alertSound" src="bell.mp3"></audio>
     <header class="header">
         <h1>Hệ thống Quản lý Xe máy</h1>
         <p>Theo dõi vị trí xe</p>
@@ -82,15 +84,15 @@
 
         // Thêm ngay sau phần khởi tạo map và UI
         const center = { lat: 10.762622, lng: 106.660172 };
-        const radius = 30000; // 30km in meters
-        
+        const radius = 20000; // 20km in meters
+
         // Tạo style cho vòng tròn
         const circleStyle = {
             strokeColor: 'rgba(55, 85, 170, 0.6)', // Màu viền
             strokeWidth: 2,
             fillColor: 'rgba(55, 85, 170, 0.1)'    // Màu fill
         };
-        
+
         // Tạo vòng tròn
         const circle = new H.map.Circle(
             center,
@@ -99,7 +101,7 @@
                 style: circleStyle
             }
         );
-        
+
         // Thêm vòng tròn vào map
         map.addObject(circle);
     </script>
@@ -122,121 +124,296 @@
 
         // Tham chiếu đến nhánh 'xe' trong Firebase
         const xeRef = firebase.database().ref('xe');
-
-        // Thêm hàm tính khoảng cách (theo công thức Haversine)
+        // const storageRef = firebase.database().ref('storage');
+        const vehiclesRef = firebase.database().ref('vehicles');
+        
         function calculateDistance(lat1, lon1, lat2, lon2) {
+            // Thêm hàm tính khoảng cách (theo công thức Haversine)
             const R = 6371000; // Bán kính Trái đất tính bằng mét
-            const φ1 = lat1 * Math.PI/180;
-            const φ2 = lat2 * Math.PI/180;
-            const Δφ = (lat2-lat1) * Math.PI/180;
-            const Δλ = (lon2-lon1) * Math.PI/180;
+            const φ1 = lat1 * Math.PI / 180;
+            const φ2 = lat2 * Math.PI / 180;
+            const Δφ = (lat2 - lat1) * Math.PI / 180;
+            const Δλ = (lon2 - lon1) * Math.PI / 180;
 
-            const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
-                    Math.cos(φ1) * Math.cos(φ2) *
-                    Math.sin(Δλ/2) * Math.sin(Δλ/2);
-            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+                Math.cos(φ1) * Math.cos(φ2) *
+                Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 
             return R * c; // Khoảng cách tính bằng mét
         }
 
-        // Cập nhật phần xử lý dữ liệu xe
-        xeRef.on('value', (snapshot) => {
-            const xeData = snapshot.val();
+        const MAX_POSITIONS = 10; // Số lượng vị trí tối đa cần lưu
+
+        xeRef.on('child_added', (snapshot) => {
+            const xeInfo = snapshot.val();
+            if (!xeInfo) return;
+
+            const vehicleId = snapshot.key;
+
+            if (vehicleId.includes('-')) {
+                console.log('Vehicle changed:', vehicleId);
+
+                // Lặp qua tất cả các nhánh con trong xeInfo
+                Object.keys(xeInfo).forEach(key => {
+                    const locationData = xeInfo[key];
+
+                    if (locationData && locationData.lat && locationData.long) {
+                        console.log('New location:', locationData);
+
+                        // Kiểm tra xem xe đã tồn tại trong nhánh vehicles chưa
+                        vehiclesRef.child(vehicleId).once('value')
+                            .then((vehicleSnapshot) => {
+                                const vehicleExists = vehicleSnapshot.exists();
+                                const vehicleRef = vehiclesRef.child(vehicleId);
+                                const positionsRef = vehicleRef.child('positions');
+
+                                // Nếu xe chưa tồn tại, tạo mới với thông tin cơ bản
+                                if (!vehicleExists) {
+                                    return vehicleRef.set({
+                                        id: vehicleId,
+                                        positions: [{
+                                            lat: locationData.lat,
+                                            long: locationData.long,
+                                        }]
+                                    });
+                                }
+
+                                // Nếu xe đã tồn tại, cập nhật vị trí
+                                return positionsRef.once('value')
+                                    .then((positionsSnapshot) => {
+                                        let positions = positionsSnapshot.val() || {};
+                                        let positionsArray = Object.values(positions);
+
+                                        // Thêm vị trí mới
+                                        positionsArray.push({
+                                            lat: locationData.lat,
+                                            long: locationData.long,
+                                        });
+
+                                        // Giới hạn số lượng vị trí
+                                        if (positionsArray.length > MAX_POSITIONS) {
+                                            positionsArray = positionsArray.slice(-MAX_POSITIONS);
+                                        }
+
+                                        // Cập nhật positions
+                                        const updatedPositions = {};
+                                        positionsArray.forEach((pos, index) => {
+                                            updatedPositions[index] = pos;
+                                        });
+
+                                        return positionsRef.set(updatedPositions);
+                                    });
+                            })
+                            .then(() => {
+                                console.log('Vehicle and positions updated successfully');
+                            })
+                            .catch((error) => {
+                                console.error('Error updating vehicle data:', error);
+                            });
+                    }
+                });
+            }
+        });
+
+        vehiclesRef.on('value', (snapshot) => {
+            const vehiclesData = snapshot.val();
             vehiclesArray = [];
             const vehicleListContainer = document.getElementById('vehicleListContainer');
             vehicleListContainer.innerHTML = '';
 
-            for (let xeId in xeData) {
-                const xeRecords = xeData[xeId];
-                const latestRecord = Object.values(xeRecords)[Object.values(xeRecords).length - 1];
+            for (let vehicleId in vehiclesData) {
+                const vehicleInfo = vehiclesData[vehicleId];
+                const positions = vehicleInfo.positions || [];
                 
-                // Tính khoảng cách từ xe đến trung tâm
-                const distance = calculateDistance(
-                    center.lat, 
-                    center.lng, 
-                    parseFloat(latestRecord.lat), 
-                    parseFloat(latestRecord.long)
-                );
-                
-                // Kiểm tra xem xe có nằm ngoài vòng tròn không
-                const isOutsideCircle = distance > radius;
-                console.log(latestRecord.lat);
-                console.log(`Xe ${xeId}: Khoảng cách = ${distance}m, Ngoài vòng tròn: ${isOutsideCircle}`);
+                // Lấy vị trí cuối cùng từ mảng positions
+                if (positions.length > 0) {
+                    const latestPosition = positions[positions.length - 1];
+                    
+                    // Tính khoảng cách từ xe đến trung tâm
+                    const distance = calculateDistance(
+                        center.lat,
+                        center.lng,
+                        parseFloat(latestPosition.lat),
+                        parseFloat(latestPosition.long)
+                    );
 
-                const vehicleDiv = document.createElement('div');
-                vehicleDiv.className = 'vehicle-item';
-                vehicleDiv.id = xeId;
+                    // Kiểm tra xem xe có nằm ngoài vòng tròn không
+                    const isOutsideCircle = distance > radius;
 
-                const isActive = true;
-                const statusClass = isActive ? 'status-active' : 'status-inactive';
-                const statusText = isActive ? 'Hoạt động' : 'Dừng';
+                    const vehicleDiv = document.createElement('div');
+                    vehicleDiv.className = 'vehicle-item';
+                    vehicleDiv.id = vehicleId;
 
-                vehicleDiv.innerHTML = `
-                    <div class="vehicle-info">
-                        <div class="vehicle-info-main">
-                            <i class="fas fa-motorcycle"></i> 
-                            <span class="vehicle-drive">${xeId}</span>
-                            <span class="status-indicator ${statusClass}">
-                                <i class="fas fa-circle"></i>
-                                <span>${statusText}</span>
-                            </span>
+                    const isActive = true;
+                    const statusClass = isActive ? 'status-active' : 'status-inactive';
+                    const statusText = isActive ? 'Hoạt động' : 'Dừng';
+
+                    vehicleDiv.innerHTML = `
+                        <div class="vehicle-info">
+                            <div class="vehicle-info-main">
+                                <i class="fas fa-motorcycle"></i> 
+                                <span class="vehicle-drive">${vehicleId}</span>
+                                <span class="status-indicator ${statusClass}">
+                                    <i class="fas fa-circle"></i>
+                                    <span>${statusText}</span>
+                                </span>
+                            </div>
+                            <div class="vehicle-buttons">
+                                <button class="alert-btn ${isOutsideCircle ? 'alert-active' : ''}">
+                                    <i class="fas fa-bell"></i>
+                                    <span>Cảnh báo</span>
+                                </button>
+                                <button class="stop-btn ${isOutsideCircle ? 'visible' : 'hidden'}" onclick="stopVehicle('${vehicleId}', this)">
+                                    <i class="fas fa-stop-circle"></i>
+                                    <span>Dừng</span>
+                                </button>
+                            </div>
                         </div>
-                        <div class="vehicle-buttons">
-                            <button class="alert-btn ${isOutsideCircle ? 'alert-active' : ''}">
-                                <i class="fas fa-bell"></i>
-                                <span>Cảnh báo</span>
-                            </button>
-                            <button class="stop-btn">
-                                <i class="fas fa-stop-circle"></i>
-                                <span>Dừng</span>
-                            </button>
-                        </div>
-                    </div>
-                `;
-                
-                // Thêm sự kiện click cho mỗi xe
-                vehicleDiv.addEventListener('click', () => {
-                    const selectedVehicle = vehiclesArray.find(v => v.id === xeId);
-                    if (selectedVehicle) {
-                        zoomToVehicle(map, xeId);  // Sử dụng hàm mới
+                    `;
 
-                        // Thêm hiệu ứng active cho xe được chọn
-                        document.querySelectorAll('.vehicle-item').forEach(item => {
-                            item.classList.remove('selected');
-                        });
-                        vehicleDiv.classList.add('selected');
-                    }
-                });
+                    // Thêm sự kiện click cho mỗi xe
+                    vehicleDiv.addEventListener('click', () => {
+                        const selectedVehicle = vehiclesArray.find(v => v.id === vehicleId);
+                        if (selectedVehicle) {
+                            zoomToVehicle(map, vehicleId);
 
-                vehicleListContainer.appendChild(vehicleDiv);
+                            // Thêm hiệu ứng active cho xe được chọn
+                            document.querySelectorAll('.vehicle-item').forEach(item => {
+                                item.classList.remove('selected');
+                            });
+                            vehicleDiv.classList.add('selected');
+                        }
+                    });
 
-                // Thêm thông tin xe vào mảng
-                vehiclesArray.push({
-                    id: xeId,
-                    lat: latestRecord.lat,
-                    long: latestRecord.long,
-                    date: latestRecord.date,
-                    time: latestRecord.time,
-                    isOutsideCircle: isOutsideCircle
-                });
+                    vehicleListContainer.appendChild(vehicleDiv);
+
+                    // Thêm thông tin xe vào mảng
+                    vehiclesArray.push({
+                        id: vehicleId,
+                        lat: latestPosition.lat,
+                        long: latestPosition.long,
+                        isOutsideCircle: isOutsideCircle
+                    });
+                }
             }
 
             // Hiển thị tracking cho tất cả các xe
             vehiclesArray.forEach(vehicle => {
                 displayTracking(map, vehicle.id);
+
+                const cardInfoRef = firebase.database().ref('cardInfo');
                 
-                // Log trạng thái của xe
+                // Xử lý khi xe ở ngoài phạm vi
                 if (vehicle.isOutsideCircle) {
-                    console.log(`Cảnh báo: Xe ${vehicle.id} đã ra ngoài phạm vi 30km!`);
+                    console.log(`Cảnh báo: Xe ${vehicle.id} đã ra ngoài phạm vi!`);
+                    const alertSound = document.getElementById('alertSound');
+                    alertSound.play().catch(error => {
+                        console.log('Không thể phát âm thanh:', error);
+                    });
+
+                    // Cập nhật warn = 1
+                    cardInfoRef.once('value')
+                        .then((snapshot) => {
+                            const cardInfoData = snapshot.val();
+                            for (let cardId in cardInfoData) {
+                                if (cardInfoData[cardId].drive === vehicle.id) {
+                                    cardInfoRef.child(cardId).update({
+                                        warn: '1',
+                                        power: '0'
+                                    }).then(() => {
+                                        console.log(`Đã cảnh báo xe ${vehicle.id} với card ${cardId}`);
+                                    }).catch((error) => {
+                                        console.error('Lỗi khi cảnh báo xe:', error);
+                                    });
+                                    break;
+                                }
+                            }
+                        })
+                        .catch((error) => {
+                            console.error('Lỗi khi truy cập cardInfo:', error);
+                        });
+                } else {
+                    // Thêm mới: Xử lý khi xe quay lại trong phạm vi
+                    cardInfoRef.once('value')
+                        .then((snapshot) => {
+                            const cardInfoData = snapshot.val();
+                            for (let cardId in cardInfoData) {
+                                if (cardInfoData[cardId].drive === vehicle.id) {
+                                    cardInfoRef.child(cardId).update({
+                                        warn: '0'
+                                    }).then(() => {
+                                        console.log(`Đã cập nhật xe ${vehicle.id} về trạng thái bình thường`);
+                                    }).catch((error) => {
+                                        console.error('Lỗi khi cập nhật trạng thái xe:', error);
+                                    });
+                                    break;
+                                }
+                            }
+                        })
+                        .catch((error) => {
+                            console.error('Lỗi khi truy cập cardInfo:', error);
+                        });
                 }
             });
         });
 
         document.getElementById('centerMapBtn').addEventListener('click', () => {
-            map.setCenter({lat: 10.762622, lng: 106.660172});
+            map.setCenter({ lat: 10.762622, lng: 106.660172 });
             map.setZoom(10);
         });
 
+        // hàm xử lí tín hiệu dừng xe
+        function stopVehicle(vehicleId, button) {
+            // Tắt âm thanh cảnh báo
+            const alertSound = document.getElementById('alertSound');
+            alertSound.pause();
+            alertSound.currentTime = 0;
+
+            // Tham chiếu đến cardInfo trực tiếp
+            const cardInfoRef = firebase.database().ref('cardInfo');
+
+            // Lấy thông tin cardInfo hiện tại để tìm card ID tương ứng với vehicleId
+            cardInfoRef.once('value')
+                .then((snapshot) => {
+                    const cardInfoData = snapshot.val();
+                    // Tìm card có drive matching với vehicleId
+                    for (let cardId in cardInfoData) {
+                        if (cardInfoData[cardId].drive === vehicleId) {
+                            console.log(cardInfoData[cardId].drive);
+                            // Kiểm tra trạng thái power
+                            const currentPower = cardInfoData[cardId].power;
+                            if (currentPower === '0') {
+                                // Cập nhật mode thành '1' cho card này
+                                cardInfoRef.child(cardId).update({
+                                    power: '1',
+                                    warn: '0'
+                                }).then(() => {
+                                    console.log(`Đã khởi động lại xe ${vehicleId} với card ${cardId}`);
+                                }).catch((error) => {
+                                    console.error('Lỗi khi khởi động lại xe:', error);
+                                });
+                            } else {
+                                // Cập nhật mode thành '0' cho card này
+                                cardInfoRef.child(cardId).update({
+                                    power: '0',
+                                    warn: '0'
+                                }).then(() => {
+                                    console.log(`Đã dừng xe ${vehicleId} với card ${cardId}`);
+                                }).catch((error) => {
+                                    console.error('Lỗi khi dừng xe:', error);
+                                });
+                            }
+                            // Thay đổi màu nút thành vàng hoặc trở về màu gốc
+                            button.style.backgroundColor = button.style.backgroundColor === 'yellow' ? '' : 'yellow';
+                            break;
+                        }
+                    }
+                })
+                .catch((error) => {
+                    console.error('Lỗi khi truy cập cardInfo:', error);
+                });
+        }
     </script>
 </body>
 

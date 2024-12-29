@@ -155,4 +155,12 @@
 
 .stop-btn:hover {
     background-color: #d32f2f;
+}
+
+.stop-btn.hidden {
+    display: none;
+}
+
+.stop-btn.visible {
+    display: inline-block;
 } 

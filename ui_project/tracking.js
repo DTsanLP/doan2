@@ -32,5 +32,5 @@ function zoomToVehicle(map, xe_Id) {
     var long = processCoordinate(xeId.long);
     
     map.setCenter({ lat: lat, lng: long });
-    map.setZoom(16);  // Chỉ set zoom khi người dùng click
+    map.setZoom(16); 
 }

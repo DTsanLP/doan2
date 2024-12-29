@@ -49,7 +49,7 @@
                 </tr>
             </thead>
             <tbody>
-                <!-- Dữ liệu sẽ được thêm vào đây bằng JavaScript -->
+                <!-- Dữ liệu sẽ được thêm vào đây -->
             </tbody>
         </table>
     </div>
@@ -78,7 +78,6 @@
                     <label for="editStatus">Trạng thái:</label>
                     <select id="editStatus" name="status" required>
                         <option value="Đang hoạt động">Đang hoạt động</option>
-                        <option value="Đang bảo trì">Đang bảo trì</option>
                         <option value="Không hoạt động">Không hoạt động</option>
                     </select>
                 </div>
@@ -87,8 +86,8 @@
                     <input type="text" id="editRenter" name="renter" required>
                 </div>
                 <div class="form-buttons">
-                    <button type="submit" class="submit-btn">Cập nhật</button>
-                    <button type="button" class="cancel-btn">Hủy</button>
+                    <button type="submit" class="submit-btn ">Cập nhật</button>
+                    <button type="button" class="cancel-btn ">Hủy</button>
                 </div>
             </form>
         </div>
@@ -119,7 +118,6 @@
                     <select id="newStatus" name="status" required>
                         <option value="Không hoạt động">Không hoạt động</option>
                         <option value="Đang hoạt động">Đang hoạt động</option>
-                        <option value="Đang bảo trì">Đang bảo trì</option>
                     </select>
                 </div>
                 <div class="form-group">
@@ -191,6 +189,7 @@
 
         // Thêm biến cho modal chỉnh sửa
         const editModal = document.getElementById("editVehicleModal");
+        const editForm = document.getElementById('editVehicleForm');
         let currentRow = null;
 
         // Xử lý đóng modal chỉnh sửa
@@ -202,7 +201,7 @@
             editModal.style.display = "none";
         }
 
-        // Hàm đ lấy dữ liệu từ Firebase
+        // Hàm lấy dữ liệu từ Firebase
         function loadVehiclesData() {
             const tbody = document.querySelector('.vehicle-table tbody');
             tbody.innerHTML = ''; // Xóa dữ liệu cũ
@@ -233,7 +232,8 @@
                             // Thêm nút sửa
                             const actionCell = row.insertCell(6);
                             actionCell.className = 'action-buttons';
-                            if (!userData.name || userData.cardId == ""){
+                            if (userData.name == "" || userData.cardId == ""){
+                                console.log(userData.cardId);
                                 actionCell.innerHTML = `
                                     <button class="edit-btn"><i class="fas fa-edit"></i> Sửa</button>
                                     <button class="register-btn"><i class="fas fa-user-plus"></i> Đăng ký</button>
@@ -267,7 +267,6 @@
                                             document.getElementById('editVehicleType').value = cells[2].textContent;
                                             document.getElementById('editStatus').value = cells[3].textContent;
                                             document.getElementById('editRenter').value = cells[4].textContent;
-                                            
                                             // Hiển thị modal
                                             editModal.style.display = "block";
                                         }
@@ -290,52 +289,58 @@
             });
         }
 
-        // Thay thế đoạn code cũ về card bằng đoạn này
         function setupCardListener() {
             firebase.database().ref('card').on('value', (snapshot) => {
                 if (snapshot.exists()) {
                     const cardId = snapshot.val();
                     document.getElementById('registerCardId').value = cardId;
-                    // Chỉ cho phép submit form khi có cardId hợp lệ
-                    document.querySelector('.submit-btn').disabled = !cardId;
+                    // Chỉ cho phép submit form đăng ký khi có cardId hợp lệ
+                    if (registerModal.style.display === "block") {
+                        document.querySelector('.submit-btn').disabled = !cardId;
+                    }
                 } else {
                     document.getElementById('registerCardId').value = 'Không có thẻ khả dụng';
-                    document.querySelector('.submit-btn').disabled = true;
+                    // Vô hiệu hóa nút submit chỉ khi modal đăng ký đang hiển thị
+                    if (registerModal.style.display === "block") {
+                        document.querySelector('.submit-btn').disabled = true;
+                    }
                 }
             });
         }
-
-        // Thêm vào phần khởi tạo
         document.addEventListener('DOMContentLoaded', () => {
             setupRealtimeUpdates();
             setupCardListener();
         });
 
-        // Cập nhật xử lý form chỉnh sửa
-        document.getElementById('editVehicleForm').onsubmit = function(e) {
+        // Xử lý form chỉnh sửa
+        editForm.onsubmit = function(e) {
             e.preventDefault();
-            
-            const newVehicleType = document.getElementById('editVehicleType').value;
-            const licensePlate = document.getElementById('editLicensePlate').value;
+            console.log(currentEditingUserId);
             const status = document.getElementById('editStatus').value;
             const renter = document.getElementById('editRenter').value;
-
             const updates = {
-                drive: licensePlate,
-                vehicleType: newVehicleType,
+                drive: document.getElementById('editLicensePlate').value,
+                vehicleType: document.getElementById('editVehicleType').value,
                 status: status,
                 name: renter
             };
 
+            // Kiểm tra xem currentEditingUserId có giá trị không
+            if (!currentEditingUserId) {
+                alert("Không tìm thấy ID người dùng để cập nhật!");
+                return;
+            }
+            
+            // Cập nhật dữ liệu lên Firebase
             database.ref('users/' + currentEditingUserId).update(updates)
                 .then(() => {
-                    alert('Cập nhật thành công!');
-                    editModal.style.display = "none";
-                    document.getElementById('editVehicleForm').reset();
+                    alert('Cập nhật thành công!'); // Thông báo thành công
+                    editModal.style.display = "none"; // Đóng modal
+                    document.getElementById('editVehicleForm').reset(); // Reset form
                 })
                 .catch((error) => {
-                    console.error("Lỗi khi cập nhật:", error);
-                    alert("Có lỗi xảy ra khi cập nhật!");
+                    console.error("Lỗi khi cập nhật:", error); // Ghi log lỗi
+                    alert("Có lỗi xảy ra khi cập nhật: " + error.message); // Thông báo lỗi chi tiết
                 });
         };
 
@@ -421,12 +426,19 @@
         registerForm.onsubmit = function(e) {
             e.preventDefault();
             
+            // Thêm điều kiện kiểm tra cardId
+            const cardId = document.getElementById('registerCardId').value;
+            if (!cardId || cardId === 'Không có thẻ khả dụng') {
+                alert("Không có thẻ hợp lệ để đăng ký!");
+                return; // Dừng lại nếu không có thẻ hợp lệ
+            }
+            
             const registerData = {
                 name: document.getElementById('registerName').value,
                 phoneNumber: document.getElementById('registerPhone').value,
                 address: document.getElementById('registerAddress').value,
                 idNumber: document.getElementById('registerIdentity').value,
-                cardId: document.getElementById('registerCardId').value,
+                cardId: cardId,
                 status: 'Đang hoạt động',
                 registrationDate: new Date().toString()
             };
@@ -448,13 +460,15 @@
                                         // Cập nhật cardInfo nếu cardId đã tồn tại
                                         return database.ref(`cardInfo/${registerData.cardId}`).update({
                                             drive: drive,
-                                            mode: "10"
+                                            power: "1",
+                                            warn: "0"
                                         });
                                     } else {
                                         // Tạo mới cardInfo với cardId làm key
                                         return database.ref(`cardInfo/${registerData.cardId}`).set({
                                             drive: drive,
-                                            mode: "10"
+                                            power: "1",
+                                            warn: "0"
                                         });
                                     }
                                 });
@@ -488,18 +502,18 @@
             }
         }
 
-        // Thêm xử lý phím Enter cho các form
-        [editModal, addModal, registerModal].forEach(modal => {
-            modal.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter') {
-                    const form = modal.querySelector('form');
-                    if (form) {
-                        e.preventDefault();
-                        form.dispatchEvent(new Event('submit'));
-                    }
-                }
-            });
-        });
+        // // Thêm xử lý phím Enter cho các form
+        // [editModal, addModal, registerModal].forEach(modal => {
+        //     modal.addEventListener('keydown', (e) => {
+        //         if (e.key === 'Enter') {
+        //             const form = modal.querySelector('form');
+        //             if (form) {
+        //                 e.preventDefault();
+        //                 form.dispatchEvent(new Event('submit'));
+        //             }
+        //         }
+        //     });
+        // });
     </script>
 </body>
 </html> 
